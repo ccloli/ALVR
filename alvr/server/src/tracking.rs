@@ -274,11 +274,32 @@ pub fn to_openvr_hand_skeleton(
         let middle_tip: Pose = gj[15];
         let ring_tip: Pose = gj[20];
         let little_tip: Pose = gj[25];
-        let index_pinch = thumb_tip.position.distance(index_tip.position) < 0.010;
-        let middle_pinch = thumb_tip.position.distance(middle_tip.position) < 0.010;
-        let ring_pinch = thumb_tip.position.distance(ring_tip.position) < 0.010;
-        let little_pinch = thumb_tip.position.distance(little_tip.position) < 0.010;
+        let index_pinch_distance = thumb_tip.position.distance(index_tip.position);
+        let middle_pinch_distance = thumb_tip.position.distance(middle_tip.position);
+        let ring_pinch_distance = thumb_tip.position.distance(ring_tip.position);
+        let little_pinch_distance = thumb_tip.position.distance(little_tip.position);
+        let index_pinch = index_pinch_distance < 0.010;
+        let middle_pinch = middle_pinch_distance < 0.018;
+        let ring_pinch = ring_pinch_distance < 0.028;
+        // little is hard to pinch and could mislead ring finger
+        let little_pinch = little_pinch_distance < 0.023;
+
         if device_id == *LEFT_HAND_ID {
+            warn!(
+                "LHand_distance: index {:.5} / middle {:.5} / ring {:.5} / little {:.5}",
+                index_pinch_distance,
+                middle_pinch_distance,
+                ring_pinch_distance,
+                little_pinch_distance
+            );
+            warn!(
+                "LHand_pinch: index {} / middle {} / ring {} / little {}",
+                index_pinch,
+                middle_pinch,
+                ring_pinch,
+                little_pinch
+            );
+
             if index_pinch {
                 unsafe {
                     crate::SetButton(
@@ -291,7 +312,7 @@ pub fn to_openvr_hand_skeleton(
                         },
                     )
                 };
-                warn!("thumb/index pinch detected on left hand");
+                // warn!("thumb/index pinch detected on left hand");
             } else {
                 unsafe {
                     crate::SetButton(
@@ -304,16 +325,32 @@ pub fn to_openvr_hand_skeleton(
                         },
                     )
                 }
-                warn!("thumb/index unpinch detected on left hand");
+                // warn!("thumb/index unpinch detected on left hand");
             }
             if middle_pinch {
-                warn!("thumb/middle pinch detected on left hand");
+                // warn!("thumb/middle pinch detected on left hand");
             } else if ring_pinch {
-                warn!("thumb/ring pinch detected on left hand");
+                // warn!("thumb/ring pinch detected on left hand");
             } else if little_pinch {
-                warn!("thumb/little pinch detected on left hand");
+                // warn!("thumb/little pinch detected on left hand");
             }
         } else {
+            warn!(
+                "RHand_distance: index {:.5} / middle {:.5} / ring {:.5} / little {:.5}",
+                index_pinch_distance,
+                middle_pinch_distance,
+                ring_pinch_distance,
+                little_pinch_distance
+            );
+            warn!(
+                "RHand_pinch: index {} / middle {} / ring {} / little {}",
+                index_pinch,
+                middle_pinch,
+                ring_pinch,
+                little_pinch
+            );
+
+
             if index_pinch {
                 unsafe {
                     crate::SetButton(
@@ -326,7 +363,7 @@ pub fn to_openvr_hand_skeleton(
                         },
                     )
                 }
-                warn!("thumb/index pinch detected on right hand");
+                // warn!("thumb/index pinch detected on right hand");
             } else {
                 unsafe {
                     crate::SetButton(
@@ -339,14 +376,14 @@ pub fn to_openvr_hand_skeleton(
                         },
                     )
                 }
-                warn!("thumb/index unpinch detected on right hand");
+                // warn!("thumb/index unpinch detected on right hand");
             }
             if middle_pinch {
-                warn!("thumb/middle pinch detected on right hand");
+                // warn!("thumb/middle pinch detected on right hand");
             } else if ring_pinch {
-                warn!("thumb/ring pinch detected on right hand");
+                // warn!("thumb/ring pinch detected on right hand");
             } else if little_pinch {
-                warn!("thumb/little pinch detected on right hand");
+                // warn!("thumb/little pinch detected on right hand");
             }
         }
     }
