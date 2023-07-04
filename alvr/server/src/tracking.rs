@@ -2,8 +2,7 @@ use crate::{to_ffi_quat, FfiDeviceMotion, FfiHandSkeleton};
 use alvr_common::{
     glam::{EulerRot, Quat, Vec3},
     prelude::warn,
-    DeviceMotion, Pose, HEAD_ID, LEFT_HAND_ID, LEFT_TRIGGER_CLICK_ID,
-    RIGHT_HAND_ID, RIGHT_TRIGGER_CLICK_ID,
+    DeviceMotion, Pose, HEAD_ID, LEFT_HAND_ID, RIGHT_HAND_ID,
 };
 use alvr_session::{
     settings_schema::Switch, HeadsetConfig, PositionRecenteringMode, RotationRecenteringMode,
@@ -267,126 +266,7 @@ pub fn to_openvr_hand_skeleton(
             * Quat::from_euler(EulerRot::YXZ, -FRAC_PI_2, FRAC_PI_2, 0.0),
         position: gj[1].position,
     };
-    // test pinch
-    {
-        let thumb_tip: Pose = gj[5];
-        let index_tip: Pose = gj[10];
-        let middle_tip: Pose = gj[15];
-        let ring_tip: Pose = gj[20];
-        let little_tip: Pose = gj[25];
-        let index_pinch_distance = thumb_tip.position.distance(index_tip.position);
-        let middle_pinch_distance = thumb_tip.position.distance(middle_tip.position);
-        let ring_pinch_distance = thumb_tip.position.distance(ring_tip.position);
-        let little_pinch_distance = thumb_tip.position.distance(little_tip.position);
-        let index_pinch = index_pinch_distance < 0.010;
-        let middle_pinch = middle_pinch_distance < 0.018;
-        let ring_pinch = ring_pinch_distance < 0.028;
-        // little is hard to pinch and could mislead ring finger
-        let little_pinch = little_pinch_distance < 0.023;
 
-        if device_id == *LEFT_HAND_ID {
-            warn!(
-                "LHand_distance: index {:.5} / middle {:.5} / ring {:.5} / little {:.5}",
-                index_pinch_distance,
-                middle_pinch_distance,
-                ring_pinch_distance,
-                little_pinch_distance
-            );
-            warn!(
-                "LHand_pinch: index {} / middle {} / ring {} / little {}",
-                index_pinch,
-                middle_pinch,
-                ring_pinch,
-                little_pinch
-            );
-
-            if index_pinch {
-                unsafe {
-                    crate::SetButton(
-                        *LEFT_TRIGGER_CLICK_ID,
-                        crate::FfiButtonValue {
-                            type_: crate::FfiButtonType_BUTTON_TYPE_BINARY,
-                            __bindgen_anon_1: crate::FfiButtonValue__bindgen_ty_1 {
-                                binary: true.into(),
-                            },
-                        },
-                    )
-                };
-                // warn!("thumb/index pinch detected on left hand");
-            } else {
-                unsafe {
-                    crate::SetButton(
-                        *LEFT_TRIGGER_CLICK_ID,
-                        crate::FfiButtonValue {
-                            type_: crate::FfiButtonType_BUTTON_TYPE_BINARY,
-                            __bindgen_anon_1: crate::FfiButtonValue__bindgen_ty_1 {
-                                binary: false.into(),
-                            },
-                        },
-                    )
-                }
-                // warn!("thumb/index unpinch detected on left hand");
-            }
-            if middle_pinch {
-                // warn!("thumb/middle pinch detected on left hand");
-            } else if ring_pinch {
-                // warn!("thumb/ring pinch detected on left hand");
-            } else if little_pinch {
-                // warn!("thumb/little pinch detected on left hand");
-            }
-        } else {
-            warn!(
-                "RHand_distance: index {:.5} / middle {:.5} / ring {:.5} / little {:.5}",
-                index_pinch_distance,
-                middle_pinch_distance,
-                ring_pinch_distance,
-                little_pinch_distance
-            );
-            warn!(
-                "RHand_pinch: index {} / middle {} / ring {} / little {}",
-                index_pinch,
-                middle_pinch,
-                ring_pinch,
-                little_pinch
-            );
-
-
-            if index_pinch {
-                unsafe {
-                    crate::SetButton(
-                        *RIGHT_TRIGGER_CLICK_ID,
-                        crate::FfiButtonValue {
-                            type_: crate::FfiButtonType_BUTTON_TYPE_BINARY,
-                            __bindgen_anon_1: crate::FfiButtonValue__bindgen_ty_1 {
-                                binary: true.into(),
-                            },
-                        },
-                    )
-                }
-                // warn!("thumb/index pinch detected on right hand");
-            } else {
-                unsafe {
-                    crate::SetButton(
-                        *RIGHT_TRIGGER_CLICK_ID,
-                        crate::FfiButtonValue {
-                            type_: crate::FfiButtonType_BUTTON_TYPE_BINARY,
-                            __bindgen_anon_1: crate::FfiButtonValue__bindgen_ty_1 {
-                                binary: false.into(),
-                            },
-                        },
-                    )
-                }
-                // warn!("thumb/index unpinch detected on right hand");
-            }
-            if middle_pinch {
-                // warn!("thumb/middle pinch detected on right hand");
-            } else if ring_pinch {
-                // warn!("thumb/ring pinch detected on right hand");
-            } else if little_pinch {
-                // warn!("thumb/little pinch detected on right hand");
-            }
-        }
-    }
     [
         // Palm. NB: this is ignored by SteamVR
         Pose::default(),
@@ -482,4 +362,52 @@ pub fn to_local_eyes(
         raw_global_eyes[0].map(|e| raw_global_head.inverse() * e),
         raw_global_eyes[1].map(|e| raw_global_head.inverse() * e),
     ]
+}
+
+pub struct Pinch {
+    distance: f32,
+    pinching: bool,
+}
+
+pub fn to_hand_pinch(
+    hand_skeleton: [Pose; 26],
+) -> [Pinch; 4] {
+    let gj = hand_skeleton;
+
+    let thumb_tip: Pose = gj[5];
+    let index_tip: Pose = gj[10];
+    let middle_tip: Pose = gj[15];
+    let ring_tip: Pose = gj[20];
+    let little_tip: Pose = gj[25];
+
+    pub fn transform_pinch(base: Pose, tip: Pose, threshold: f32) -> Pinch {
+        let distance = {
+            base.position.distance(tip.position)
+        };
+        let pinching = distance <= threshold;
+
+        Pinch {
+            distance,
+            pinching,
+        }
+    }
+
+    let pinches = [
+        transform_pinch(thumb_tip, index_tip, 0.010),
+        transform_pinch(thumb_tip, middle_tip, 0.018),
+        transform_pinch(thumb_tip, ring_tip, 0.028),
+        // little is hard to pinch and could mislead ring finger
+        transform_pinch(thumb_tip, little_tip, 0.023),
+    ];
+
+    warn!(
+        "Hand_distance: index {:.5} / middle {:.5} / ring {:.5} / little {:.5}",
+        pinches[0].distance, pinches[1].distance, pinches[2].distance, pinches[3].distance
+    );
+    warn!(
+        "Hand_pinch: index {} / middle {} / ring {} / little {}",
+        pinches[0].distance, pinches[1].distance, pinches[2].distance, pinches[3].pinching
+    );
+
+    pinches
 }
