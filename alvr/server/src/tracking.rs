@@ -1,8 +1,10 @@
 use crate::{to_ffi_quat, FfiDeviceMotion, FfiHandSkeleton};
 use alvr_common::{
     glam::{EulerRot, Quat, Vec3},
-    prelude::warn,
+    prelude::*,
     DeviceMotion, Pose, HEAD_ID, LEFT_HAND_ID, RIGHT_HAND_ID,
+    MENU_CLICK_ID, A_CLICK_ID, B_CLICK_ID, X_CLICK_ID, Y_CLICK_ID,
+    LEFT_THUMBSTICK_CLICK_ID, RIGHT_THUMBSTICK_CLICK_ID,
 };
 use alvr_session::{
     settings_schema::Switch, HeadsetConfig, PositionRecenteringMode, RotationRecenteringMode,
@@ -381,9 +383,7 @@ pub fn to_hand_pinch(
     let little_tip: Pose = gj[25];
 
     pub fn transform_pinch(base: Pose, tip: Pose, threshold: f32) -> Pinch {
-        let distance = {
-            base.position.distance(tip.position)
-        };
+        let distance = base.position.distance(tip.position);
         let pinching = distance <= threshold;
 
         Pinch {
@@ -396,18 +396,59 @@ pub fn to_hand_pinch(
         transform_pinch(thumb_tip, index_tip, 0.010),
         transform_pinch(thumb_tip, middle_tip, 0.018),
         transform_pinch(thumb_tip, ring_tip, 0.028),
-        // little is hard to pinch and could mislead ring finger
         transform_pinch(thumb_tip, little_tip, 0.023),
     ];
 
-    warn!(
+    debug!(
         "Hand_distance: index {:.5} / middle {:.5} / ring {:.5} / little {:.5}",
         pinches[0].distance, pinches[1].distance, pinches[2].distance, pinches[3].distance
     );
-    warn!(
+    debug!(
         "Hand_pinch: index {} / middle {} / ring {} / little {}",
-        pinches[0].distance, pinches[1].distance, pinches[2].distance, pinches[3].pinching
+        pinches[0].pinching, pinches[1].pinching, pinches[2].pinching, pinches[3].pinching
     );
 
     pinches
+}
+
+
+pub fn hand_pinch_to_btn_press(
+    device_id: u64,
+    pinches: [Pinch; 4],
+) {
+    let index_pinch_only = pinches[0].pinching && !pinches[1].pinching && !pinches[2].pinching && !pinches[3].pinching;
+    let middle_pinch_only = !pinches[0].pinching && pinches[1].pinching && !pinches[2].pinching && !pinches[3].pinching;
+    let ring_pinch_only = !pinches[0].pinching && !pinches[1].pinching && pinches[2].pinching && !pinches[3].pinching;
+    // little is hard to pinch and could mislead ring finger
+    let little_pinch_only = !pinches[0].pinching && !pinches[1].pinching && pinches[3].pinching;
+    // TODO: joystick movement
+    let _middle_ring_pinch = !pinches[0].pinching && pinches[1].pinching && pinches[2].pinching && !pinches[3].pinching;
+
+    pub fn set_btn_value(id: &u64, value: bool) {
+        unsafe {
+            if value {
+                info!("button pressed {:#16x}", *id)
+            }
+            crate::SetButton(
+                *id,
+                crate::FfiButtonValue {
+                    type_: crate::FfiButtonType_BUTTON_TYPE_BINARY,
+                    __bindgen_anon_1: crate::FfiButtonValue__bindgen_ty_1 {
+                        binary: value.into(),
+                    },
+                },
+            )
+        }
+    }
+
+    if device_id == *LEFT_HAND_ID {
+        set_btn_value(&MENU_CLICK_ID, index_pinch_only);
+        set_btn_value(&Y_CLICK_ID, middle_pinch_only);
+        set_btn_value(&X_CLICK_ID, ring_pinch_only);
+        set_btn_value(&LEFT_THUMBSTICK_CLICK_ID, little_pinch_only);
+    } else {
+        set_btn_value(&B_CLICK_ID, middle_pinch_only);
+        set_btn_value(&A_CLICK_ID, ring_pinch_only);
+        set_btn_value(&RIGHT_THUMBSTICK_CLICK_ID, little_pinch_only);
+    }
 }

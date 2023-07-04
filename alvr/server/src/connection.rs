@@ -738,6 +738,11 @@ fn try_connect(mut client_ips: HashMap<IpAddr, String>) -> IntResult {
                 let ffi_left_hand_skeleton = left_hand_skeleton.map(tracking::to_ffi_skeleton);
                 let ffi_right_hand_skeleton = right_hand_skeleton.map(tracking::to_ffi_skeleton);
 
+                let left_hand_pinches = tracking.hand_skeletons[0].map(tracking::to_hand_pinch);
+                let right_hand_pinches = tracking.hand_skeletons[1].map(tracking::to_hand_pinch);
+                left_hand_pinches.map(|s| tracking::hand_pinch_to_btn_press(*LEFT_HAND_ID, s));
+                right_hand_pinches.map(|s| tracking::hand_pinch_to_btn_press(*RIGHT_HAND_ID, s));
+
                 drop(tracking_manager_lock);
 
                 if let Some(stats) = &mut *STATISTICS_MANAGER.lock() {
