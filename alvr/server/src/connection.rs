@@ -18,6 +18,8 @@ use alvr_common::{
     prelude::*,
     settings_schema::Switch,
     RelaxedAtomic, DEVICE_ID_TO_PATH, HEAD_ID, LEFT_HAND_ID, RIGHT_HAND_ID,
+    MENU_CLICK_ID, A_CLICK_ID, B_CLICK_ID, X_CLICK_ID, Y_CLICK_ID,
+    LEFT_THUMBSTICK_CLICK_ID, RIGHT_THUMBSTICK_CLICK_ID,
 };
 use alvr_events::{ButtonEvent, EventType, HapticsEvent, TrackingEvent};
 use alvr_packets::{
@@ -657,6 +659,9 @@ fn try_connect(mut client_ips: HashMap<IpAddr, String>) -> IntResult {
                 track_controllers = config.tracked.into();
             }
 
+            let mut left_pinch_status = [false, false, false, false, false];
+            let mut right_pinch_status = [false, false, false, false, false];
+
             loop {
                 let Some(tracking) = CONNECTION_RUNTIME
                     .read()
@@ -740,8 +745,55 @@ fn try_connect(mut client_ips: HashMap<IpAddr, String>) -> IntResult {
 
                 let left_hand_pinches = tracking.hand_skeletons[0].map(tracking::to_hand_pinch);
                 let right_hand_pinches = tracking.hand_skeletons[1].map(tracking::to_hand_pinch);
-                left_hand_pinches.map(|s| tracking::hand_pinch_to_btn_press(*LEFT_HAND_ID, s));
-                right_hand_pinches.map(|s| tracking::hand_pinch_to_btn_press(*RIGHT_HAND_ID, s));
+
+                {
+                    pub fn set_btn_value(id: &u64, value: bool) {
+                        unsafe {
+                            info!("button pressed {:#16x} {}", *id, value);
+
+                            crate::SetButton(
+                                *id,
+                                crate::FfiButtonValue {
+                                    type_: crate::FfiButtonType_BUTTON_TYPE_BINARY,
+                                    __bindgen_anon_1: crate::FfiButtonValue__bindgen_ty_1 {
+                                        binary: value.into(),
+                                    },
+                                },
+                            )
+                        }
+                    }
+
+                    left_hand_pinches.map(|s| {
+                        let status = tracking::to_pinch_status(s);
+                        if status[0] != left_pinch_status[0] {
+                            set_btn_value(&MENU_CLICK_ID, status[0])
+                        }
+                        if status[1] != left_pinch_status[1] {
+                            set_btn_value(&Y_CLICK_ID, status[1])
+                        }
+                        if status[2] != left_pinch_status[2] {
+                            set_btn_value(&X_CLICK_ID, status[2])
+                        }
+                        if status[3] != left_pinch_status[3] {
+                            set_btn_value(&LEFT_THUMBSTICK_CLICK_ID, status[3])
+                        }
+                        left_pinch_status = status;
+                    });
+                    right_hand_pinches.map(|s| {
+                        let status = tracking::to_pinch_status(s);
+                        if status[1] != right_pinch_status[1] {
+                            set_btn_value(&B_CLICK_ID, status[1])
+                        }
+                        if status[2] != right_pinch_status[2] {
+                            set_btn_value(&A_CLICK_ID, status[2])
+                        }
+                        if status[3] != right_pinch_status[3] {
+                            set_btn_value(&RIGHT_THUMBSTICK_CLICK_ID, status[3])
+                        }
+                        right_pinch_status = status;
+                    });
+
+                }
 
                 drop(tracking_manager_lock);
 
