@@ -4,9 +4,6 @@ use alvr_packets::DecoderInitializationConfig;
 use alvr_session::{CodecType, MediacodecDataType};
 use std::time::Duration;
 
-#[cfg(target_os = "android")]
-use alvr_common::prelude::*;
-
 #[derive(Clone)]
 pub struct DecoderInitConfig {
     pub codec: CodecType,
@@ -60,9 +57,9 @@ pub fn create_decoder(lazy_config: DecoderInitializationConfig) {
             *DECODER_ENQUEUER.lock() = Some(enqueuer);
             *DECODER_DEQUEUER.lock() = Some(dequeuer);
 
-            if let Some(sender) = &*crate::connection::CONTROL_CHANNEL_SENDER.lock() {
+            if let Some(sender) = &mut *crate::connection::CONTROL_SENDER.lock() {
                 sender
-                    .send(alvr_packets::ClientControlPacket::RequestIdr)
+                    .send(&alvr_packets::ClientControlPacket::RequestIdr)
                     .ok();
             }
         }
@@ -79,8 +76,11 @@ pub fn push_nal(timestamp: Duration, nal: &[u8]) -> bool {
         true
     } else {
         #[cfg(target_os = "android")]
-        if let Some(decoder) = &*DECODER_ENQUEUER.lock() {
-            matches!(show_err(decoder.push_frame_nal(timestamp, nal)), Some(true))
+        if let Some(decoder) = &mut *DECODER_ENQUEUER.lock() {
+            matches!(
+                alvr_common::show_err(decoder.push_frame_nal(timestamp, nal)),
+                Some(true)
+            )
         } else {
             false
         }

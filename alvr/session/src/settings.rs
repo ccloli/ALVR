@@ -588,8 +588,8 @@ pub struct FaceTrackingSources {
 pub enum FaceTrackingSinkConfig {
     #[schema(strings(display_name = "VRChat Eye OSC"))]
     VrchatEyeOsc { port: u16 },
-    #[schema(strings(display_name = "VRCFaceTracking OSC"))]
-    VrcFaceTrackingOsc { port: u16 },
+    #[schema(strings(display_name = "VRCFaceTracking"))]
+    VrcFaceTracking,
 }
 
 #[derive(SettingsSchema, Serialize, Deserialize, Clone)]
@@ -729,6 +729,7 @@ pub struct HeadsetConfig {
 Local floor: the origin is on the floor and resets when long pressing the oculus button.
 Local: the origin resets when long pressing the oculus button, and is calculated as an offset from the current head position."#
     ))]
+    #[schema(flag = "real-time")]
     pub position_recentering_mode: PositionRecenteringMode,
 
     #[schema(strings(
@@ -736,6 +737,7 @@ Local: the origin resets when long pressing the oculus button, and is calculated
 Yaw: the forward direction is reset when long pressing the oculus button.
 Tilted: the world gets tilted when long pressing the oculus button. This is useful for using VR while laying down."#
     ))]
+    #[schema(flag = "real-time")]
     pub rotation_recentering_mode: RotationRecenteringMode,
 }
 
@@ -827,6 +829,7 @@ For now works only on Windows+Nvidia"#
 
 #[derive(SettingsSchema, Serialize, Deserialize, Clone)]
 pub struct LoggingConfig {
+    pub client_log_report_level: Switch<LogSeverity>,
     #[schema(strings(help = "Write logs into the session_log.txt file."))]
     pub log_to_disk: bool,
     #[schema(flag = "real-time")]
@@ -839,6 +842,9 @@ pub struct LoggingConfig {
     pub notification_level: LogSeverity,
     #[schema(flag = "real-time")]
     pub show_raw_events: bool,
+    #[schema(strings(help = "This applies only to certain error or warning messages."))]
+    #[schema(flag = "steamvr-restart")]
+    pub prefer_backtrace: bool,
 }
 
 #[derive(SettingsSchema, Serialize, Deserialize, Clone)]
@@ -1162,9 +1168,6 @@ pub fn session_settings_default() -> SettingsDefault {
                     },
                     sink: FaceTrackingSinkConfigDefault {
                         VrchatEyeOsc: FaceTrackingSinkConfigVrchatEyeOscDefault { port: 9000 },
-                        VrcFaceTrackingOsc: FaceTrackingSinkConfigVrcFaceTrackingOscDefault {
-                            port: 9620,
-                        },
                         variant: FaceTrackingSinkConfigDefaultVariant::VrchatEyeOsc,
                     },
                 },
@@ -1236,6 +1239,12 @@ pub fn session_settings_default() -> SettingsDefault {
             statistics_history_size: 256,
         },
         logging: LoggingConfigDefault {
+            client_log_report_level: SwitchDefault {
+                enabled: true,
+                content: LogSeverityDefault {
+                    variant: LogSeverityDefaultVariant::Error,
+                },
+            },
             log_to_disk: cfg!(debug_assertions),
             log_button_presses: false,
             log_tracking: false,
@@ -1248,6 +1257,7 @@ pub fn session_settings_default() -> SettingsDefault {
                 },
             },
             show_raw_events: false,
+            prefer_backtrace: false,
         },
         steamvr_launcher: SteamvrLauncherDefault {
             driver_launch_action: DriverLaunchActionDefault {
