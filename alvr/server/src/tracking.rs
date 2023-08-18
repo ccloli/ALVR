@@ -1,7 +1,7 @@
 use crate::{to_ffi_quat, FfiDeviceMotion, FfiHandSkeleton};
 use alvr_common::{
     glam::{EulerRot, Quat, Vec3},
-    prelude::*,
+    debug,
     DeviceMotion, Pose, HEAD_ID, LEFT_HAND_ID, RIGHT_HAND_ID,
     // MENU_CLICK_ID, A_CLICK_ID, B_CLICK_ID, X_CLICK_ID, Y_CLICK_ID,
     // LEFT_THUMBSTICK_CLICK_ID, RIGHT_THUMBSTICK_CLICK_ID,
